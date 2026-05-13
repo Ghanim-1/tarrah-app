@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}التقارير - طرّة{% endblock %}
+
+{% block extra_css %}
+<style>
+    .reports-header {
+        margin-bottom: 30px;
+    }
+
+    .reports-header h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 20px;
+    }
+
+    .report-builder {
+        background: var(--white);
+        padding: 30px;
+        border-radius: 12px;
+        border-top: 4px solid var(--gold);
+        margin-bottom: 30px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        align-items: flex-end;
+    }
+
+    .dark-theme .report-builder {
+        background: var(--accent);
+    }
+
+    .report-builder .form-group {
+        margin-bottom: 0;
+    }
+
+    .report-results {
+        background: var(--white);
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border-top: 4px solid var(--gold);
+        margin-bottom: 30px;
+    }
+
+    .dark-theme .report-results {
+        background: var(--accent);
+    }
+
+    .report-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .report-stat {
+        background: linear-gradient(135deg, var(--gold) 0%, #c9a227 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+    }
+
+    .report-stat-label {
+        font-size: 12px;
+        opacity: 0.9;
+        text-transform: uppercase;
+    }
+
+    .report-stat-value {
+        font-size: 28px;
+        font-weight: 700;
+        margin-top: 8px;
+    }
+
+    .report-table {
+        overflow-x: auto;
+    }
+
+    .report-table table {
+        width: 100%;
+        margin-top: 20px;
+    }
+
+    .export-section {
+        display: flex;
+        gap: 10px;
+        margin-top: 30px;
+        border-top: 2px solid var(--border);
+        padding-top: 20px;
+    }
+
+    .dark-theme .export-section {
+        border-top-color: #333;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reports-header">
+    <h1>📊 التقارير</h1>
+    <p style="color: var(--gray);">إنشاء وتحليل تقارير الأداء</p>
+</div>
+
+<!-- Report Builder -->
+<div class="report-builder">
+    <div class="form-group">
+        <label>نوع الفترة</label>
+        <select id="reportPeriod" onchange="updateDateFields()">
+            <option value="daily">يومي</option>
+            <option value="weekly">أسبوعي</option>
+            <option value="monthly" selected>شهري</option>
+            <option value="yearly">سنوي</option>
+            <option value="custom">مخصص</option>
+        </select>
+    </div>
+    <div class="form-group" id="customDateFields" style="display: none;">
+        <label>من</label>
+        <input type="date" id="reportDateFrom">
+    </div>
+    <div class="form-group" id="customDateFieldsTo" style="display: none;">
+        <label>إلى</label>
+        <input type="date" id="reportDateTo">
+    </div>
+    <button class="btn btn-primary" onclick="generateReport()">📈 إنشاء التقرير</button>
+</div>
+
+<!-- Report Results -->
+<div id="reportResults" style="display: none;">
+    <div class="report-results">
+        <h2 style="margin-bottom: 25px;">ملخص التقرير</h2>
+        
+        <div class="report-summary">
+            <div class="report-stat">
+                <div class="report-stat-label">الإيرادات الإجمالية</div>
+                <div class="report-stat-value" id="totalRevenue">0.00</div>
+            </div>
+            <div class="report-stat">
+                <div class="report-stat-label">التكاليف الإجمالية</div>
+                <div class="report-stat-value" id="totalCost">0.00</div>
+            </div>
+            <div class="report-stat">
+                <div class="report-stat-label">إجمالي الربح</div>
+                <div class="report-stat-value" id="totalProfit">0.00</div>
+            </div>
+            <div class="report-stat">
+                <div class="report-stat-label">عدد المبيعات</div>
+                <div class="report-stat-value" id="salesCount">0</div>
+            </div>
+        </div>
+
+        <div class="report-table">
+            <h3 style="margin-bottom: 15px;">تفاصيل المبيعات</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>المنتج</th>
+                        <th>السعر</th>
+                        <th>التكلفة</th>
+                        <th>الربح</th>
+                        <th>التاريخ</th>
+                    </tr>
+                </thead>
+                <tbody id="reportSalesBody">
+                    <tr><td colspan="5" style="text-align: center; padding: 20px;">جاري التحميل...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="report-table">
+            <h3 style="margin-bottom: 15px;">تفاصيل الخدمات</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>نوع الخدمة</th>
+                        <th>السعر</th>
+                        <th>التكلفة</th>
+                        <th>الربح</th>
+                        <th>التاريخ</th>
+                    </tr>
+                </thead>
+                <tbody id="reportServicesBody">
+                    <tr><td colspan="5" style="text-align: center; padding: 20px;">جاري التحميل...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="export-section">
+            <button class="btn btn-primary" onclick="exportReportPDF()">📄 تصدير PDF</button>
+            <button class="btn btn-primary" onclick="exportReportCSV()">📊 تصدير CSV</button>
+            <button class="btn btn-secondary" onclick="printReport()">🖨️ طباعة</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentReportData = null;
+
+    function updateDateFields() {
+        const period = document.getElementById('reportPeriod').value;
+        const customFrom = document.getElementById('customDateFields');
+        const customTo = document.getElementById('customDateFieldsTo');
+
+        if (period === 'custom') {
+            customFrom.style.display = 'flex';
+            customTo.style.display = 'flex';
+        } else {
+            customFrom.style.display = 'none';
+            customTo.style.display = 'none';
+        }
+    }
+
+    async function generateReport() {
+        const period = document.getElementById('reportPeriod').value;
+        const dateFrom = period === 'custom' ? document.getElementById('reportDateFrom').value : '';
+        const dateTo = period === 'custom' ? document.getElementById('reportDateTo').value : '';
+
+        try {
+            const response = await fetch('/api/reports/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    period: period,
+                    date_from: dateFrom,
+                    date_to: dateTo
+                })
+            });
+
+            const data = await response.json();
+            currentReportData = data;
+
+            displayReport(data);
+            document.getElementById('reportResults').style.display = 'block';
+
+        } catch (error) {
+            alert('خطأ في إنشاء التقرير');
+        }
+    }
+
+    function displayReport(data) {
+        // Update stats
+        document.getElementById('totalRevenue').textContent = data.total_revenue.toFixed(2);
+        document.getElementById('totalCost').textContent = data.total_cost.toFixed(2);
+        document.getElementById('totalProfit').textContent = data.total_profit.toFixed(2);
+        document.getElementById('salesCount').textContent = data.items_sold + ' مبيعة / ' + data.services_completed + ' خدمة';
+
+        // Display sales
+        const salesHTML = data.sales.map(sale => `
+            <tr>
+                <td>${sale.name}</td>
+                <td>${sale.price.toFixed(2)}</td>
+                <td>${sale.cost.toFixed(2)}</td>
+                <td>${sale.profit.toFixed(2)}</td>
+                <td>${new Date(sale.date).toLocaleDateString('ar-OM')}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="5" style="text-align: center; padding: 20px;">لا توجد مبيعات</td></tr>';
+        document.getElementById('reportSalesBody').innerHTML = salesHTML;
+
+        // Display services
+        const servicesHTML = data.services.map(service => `
+            <tr>
+                <td>${service.type}</td>
+                <td>${service.price.toFixed(2)}</td>
+                <td>${service.cost.toFixed(2)}</td>
+                <td>${service.profit.toFixed(2)}</td>
+                <td>${new Date(service.date).toLocaleDateString('ar-OM')}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="5" style="text-align: center; padding: 20px;">لا توجد خدمات</td></tr>';
+        document.getElementById('reportServicesBody').innerHTML = servicesHTML;
+    }
+
+    function exportReportPDF() {
+        if (!currentReportData) {
+            alert('يرجى إنشاء تقرير أولاً');
+            return;
+        }
+        fetch('/api/reports/export/pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentReportData)
+        }).then(response => response.blob()).then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'report.pdf';
+            a.click();
+        });
+    }
+
+    function exportReportCSV() {
+        if (!currentReportData) {
+            alert('يرجى إنشاء تقرير أولاً');
+            return;
+        }
+        fetch('/api/reports/export/csv', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentReportData)
+        }).then(response => response.blob()).then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'report.csv';
+            a.click();
+        });
+    }
+
+    function printReport() {
+        window.print();
+    }
+
+    // Set default date range for monthly
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    document.getElementById('reportDateFrom').valueAsDate = firstDay;
+    document.getElementById('reportDateTo').valueAsDate = today;
+</script>
+{% endblock %}

@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}المبيعات - طرّة{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sales-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        gap: 15px;
+    }
+
+    .export-buttons {
+        display: flex;
+        gap: 10px;
+    }
+
+    .sales-filters {
+        background: var(--white);
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        display: flex;
+        gap: 15px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .dark-theme .sales-filters {
+        background: var(--accent);
+    }
+
+    .sales-filters .form-group {
+        margin-bottom: 0;
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .sales-table {
+        overflow-x: auto;
+    }
+
+    .sales-table table {
+        width: 100%;
+    }
+
+    .sales-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 30px;
+    }
+
+    .summary-card {
+        background: var(--white);
+        padding: 20px;
+        border-radius: 12px;
+        border-left: 4px solid var(--gold);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .dark-theme .summary-card {
+        background: var(--accent);
+    }
+
+    .summary-label {
+        font-size: 13px;
+        color: var(--gray);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .summary-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--gold);
+        margin-top: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sales-header">
+    <h1>💰 إدارة المبيعات</h1>
+    <div class="export-buttons">
+        <button class="btn btn-primary" onclick="exportPDF()">📄 تصدير PDF</button>
+        <button class="btn btn-primary" onclick="exportCSV()">📊 تصدير CSV</button>
+    </div>
+</div>
+
+<div class="sales-filters">
+    <div class="form-group" style="flex: 1; min-width: 150px;">
+        <label>من</label>
+        <input type="date" id="dateFrom">
+    </div>
+    <div class="form-group" style="flex: 1; min-width: 150px;">
+        <label>إلى</label>
+        <input type="date" id="dateTo">
+    </div>
+    <button class="btn btn-primary" onclick="loadSales()">🔍 تصفية</button>
+</div>
+
+<div class="card">
+    <div class="card-title">📋 سجل المبيعات</div>
+    <div class="sales-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>اسم المنتج</th>
+                    <th>سعر الشراء</th>
+                    <th>سعر البيع</th>
+                    <th>الربح</th>
+                    <th>العميل</th>
+                    <th>التاريخ</th>
+                </tr>
+            </thead>
+            <tbody id="salesTableBody">
+                <tr><td colspan="7" style="text-align: center; padding: 30px; color: #999;">جاري التحميل...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="sales-summary">
+    <div class="summary-card">
+        <div class="summary-label">إجمالي المبيعات</div>
+        <div class="summary-value" id="totalSalesRevenue">0.00</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">إجمالي التكاليف</div>
+        <div class="summary-value" id="totalCost">0.00</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">إجمالي الربح</div>
+        <div class="summary-value" id="totalProfit">0.00</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">عدد المبيعات</div>
+        <div class="summary-value" id="salesCount">0</div>
+    </div>
+</div>
+
+<script>
+    async function loadSales() {
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        
+        const url = `/api/sales?date_from=${dateFrom}&date_to=${dateTo}`;
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+
+            const rows = data.sales.map((sale, idx) => `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td>${sale.name}</td>
+                    <td>${sale.purchase_price.toFixed(2)}</td>
+                    <td>${sale.selling_price.toFixed(2)}</td>
+                    <td><span style="color: var(--success); font-weight: 700;">${sale.profit.toFixed(2)}</span></td>
+                    <td>${sale.customer || '-'}</td>
+                    <td>${new Date(sale.sale_date).toLocaleDateString('ar-OM')}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('salesTableBody').innerHTML = rows || '<tr><td colspan="7" style="text-align: center; padding: 30px; color: #999;">لا توجد مبيعات</td></tr>';
+
+            // Calculate totals
+            let totalRevenue = 0, totalCost = 0, totalProfit = 0;
+            data.sales.forEach(sale => {
+                totalRevenue += sale.selling_price;
+                totalCost += sale.purchase_price;
+                totalProfit += sale.profit;
+            });
+
+            document.getElementById('totalSalesRevenue').textContent = totalRevenue.toFixed(2);
+            document.getElementById('totalCost').textContent = totalCost.toFixed(2);
+            document.getElementById('totalProfit').textContent = totalProfit.toFixed(2);
+            document.getElementById('salesCount').textContent = data.sales.length;
+
+        } catch (error) {
+            console.error('Error loading sales:', error);
+        }
+    }
+
+    function exportPDF() {
+        alert('تم إرسال الطلب للمعالجة...');
+    }
+
+    function exportCSV() {
+        alert('تم إرسال الطلب للمعالجة...');
+    }
+
+    // Set default dates
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    document.getElementById('dateFrom').valueAsDate = firstDay;
+    document.getElementById('dateTo').valueAsDate = today;
+
+    loadSales();
+</script>
+{% endblock %}
